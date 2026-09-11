@@ -1,57 +1,55 @@
 maintainer="astafan8 <astafan8@users.noreply.github.com>"
-status="experimental"
 pkgname=remarkable-calendar-notes
 pkgver=0.1.26
 pkgrel=0
 upstream_author="astafan8"
 category="apps"
-pkgdesc="Read-only calendar (Day/Week/Work Week/Two Weeks/Month) with persistent handwritten notes per date, via AppLoad"
+pkgdesc="Read-only calendar with persistent handwritten notes per date, for AppLoad"
 url="https://github.com/astafan8/remarkable-calendar-notes"
 arch="armv7"
 license="MIT"
-# reMarkable 2 only. Vellum's device gating is expressed as exclusions of
-# the devices this package must not install on, alongside its real
-# dependencies: this app is built for RM2's 32-bit armv7 userspace and its
-# 1404x1872 QTFB framebuffer, and is not built or tested for the
-# reMarkable 1, Paper Pro, Paper Pro Move, or Paper Pure.
-depends="appload>=0.5.3 remarkable-os>=3.26 remarkable-os<3.28 !rm1 !rmpp !rmppm !rmppure"
-readmeurl="https://raw.githubusercontent.com/$upstream_author/remarkable-calendar-notes/v$pkgver/README.md"
-source="
-https://github.com/$upstream_author/remarkable-calendar-notes/releases/download/v$pkgver/remarkable-calendar-notes-$pkgver.zip
-https://raw.githubusercontent.com/$upstream_author/remarkable-calendar-notes/v$pkgver/LICENSE
-"
-options="!check !fhs"
+depends="appload>=0.5.3 remarkable-os>=3.26 remarkable-os<3.28"
+_commit="94983f2081b6b16d875a40411ca4666497ee3db5"
+readmeurl="https://raw.githubusercontent.com/$upstream_author/$pkgname/v$pkgver/README.md"
+source="$pkgname-$pkgver.tar.gz::https://github.com/$upstream_author/$pkgname/archive/$_commit.tar.gz"
 
-unpack() {
-	unzip -o "$srcdir"/remarkable-calendar-notes-$pkgver.zip -d "$srcdir"
+image="ghcr.io/toltec-dev/rust:v4.0"
+
+build() {
+	set -e
+	case "$CARCH" in
+	armv7) . /opt/x-tools/switch-arm.sh ;;
+	*)
+		echo "Invalid CARCH: $CARCH"
+		exit 1
+		;;
+	esac
+	cd "$srcdir"/"$pkgname"-"$_commit"
+	cargo build --release --locked -p calnotes-app --target "$CARGO_BUILD_TARGET"
+	mv target/"$CARGO_BUILD_TARGET"/release/"$pkgname" .
 }
 
 package() {
-	base="$srcdir"/remarkable-calendar-notes-$pkgver/remarkable-calendar-notes
-	install -Dm755 "$base"/remarkable-calendar-notes \
-		"$pkgdir"/home/root/xovi/exthome/appload/remarkable-calendar-notes/remarkable-calendar-notes
-	install -Dm644 "$base"/icon.png \
-		"$pkgdir"/home/root/xovi/exthome/appload/remarkable-calendar-notes/icon.png
-	install -Dm644 "$base"/external.manifest.json \
-		"$pkgdir"/home/root/xovi/exthome/appload/remarkable-calendar-notes/external.manifest.json
+	set -e
+	cd "$srcdir"/"$pkgname"-"$_commit"
+	install -Dm755 "$pkgname" \
+		"$pkgdir"/home/root/xovi/exthome/appload/"$pkgname"/"$pkgname"
+	install -Dm644 assets/icon.png \
+		"$pkgdir"/home/root/xovi/exthome/appload/"$pkgname"/icon.png
+	install -Dm644 external.manifest.json \
+		"$pkgdir"/home/root/xovi/exthome/appload/"$pkgname"/external.manifest.json
 
-	install -Dm644 "$srcdir"/LICENSE \
+	install -Dm644 LICENSE \
 		"$pkgdir"/home/root/.vellum/licenses/$pkgname/LICENSE
-	echo "https://github.com/$upstream_author/remarkable-calendar-notes" > \
-		"$pkgdir"/home/root/.vellum/licenses/$pkgname/SOURCES
+	echo "$url" > "$pkgdir"/home/root/.vellum/licenses/$pkgname/SOURCES
 }
 
-predeinstall() {
-	# User data (config, ink notes, offline cache) lives under
-	# /home/root/.local/share/remarkable-calendar-notes and is preserved on
-	# a plain `vellum del`; only `vellum purge` removes it.
+postdeinstall() {
 	if [ "$VELLUM_PURGE" = "1" ]; then
 		rm -rf /home/root/.local/share/remarkable-calendar-notes
 	fi
 }
 
-# Checksums recorded from the published v0.1.26 release.
 sha512sums="
-3801872d840887c1c24e488f217dd4a9b10bb04eec3702a96f8eab97f6f5cff42838a373cc87c6dd3e4eb35994928ce84e21b20cedb5b3816a90bc478255a728  remarkable-calendar-notes-0.1.26.zip
-9f39ea5e24a0eaf3f0e3217170cded95184fe8a6f179d4d19c4c11c110e5be135be23d7edb0b3cec093d1a4ea93ffec753f4b8fcf9b0ac1fc5856f7a95f13773  LICENSE
+4e8ef28035f6b7e674430f1ed4e10a1f728e8bf8911cd857ab2e9aaeddb3f4f4eb296dc414df9b11299da531e026d359a07ba5dff4ad1ef3cc9a0b10f9d061bb  remarkable-calendar-notes-0.1.26.tar.gz
 "
